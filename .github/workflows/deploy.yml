@@ -29,7 +29,7 @@ jobs:
 
     - name: Archive build artifacts
       run: |
-        cd dist/barter/browser
+        cd dist/nota-agil-ng/browser
         zip -r ./build.zip .
 
     - name: Upload Release Asset
@@ -38,6 +38,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./dist/barter/browser/build.zip
+        asset_path: ./dist/nota-agil-ng/browser/build.zip
         asset_name: build.zip
         asset_content_type: application/zip
