@@ -1,0 +1,38 @@
+name: Deploy Angular App
+
+on:
+  release:
+    types: [ created ]
+
+permissions:
+  contents: write
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Angular app
+      run: npm run build --prod --output-hashing=all -- --configuration production --deploy-url / --base-href /
+
+    - name: Archive build artifacts
+      run: |
+        cd dist
+        zip -r ../build.zip .
+
+    - name: Attach asset na release existente
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.release.tag_name }}
+        files: build.zip
