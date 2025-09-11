@@ -1,0 +1,84 @@
+<div class="card">
+    <div class="title">Tasks</div>
+    <hr />
+  
+    <p-table
+      [value]="tasks"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="rows"
+      [totalRecords]="totalRecords"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando {first}–{last} de {totalRecords} registros"
+      [loading]="loading"
+      (onLazyLoad)="onLazyLoad($event)"
+      dataKey="id"
+      [responsiveLayout]="'scroll'"
+      [tableStyle]="{ 'min-width': '48rem' }"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Id</th>
+          <th>Tomador</th>
+          <th>Created At</th>
+          <th>Issued on</th>
+          <th>Task Type</th>
+          <th>Duplicata</th>
+          <th>Status</th>
+          <th style="width:1%;white-space:nowrap;text-align:right">Ações</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-task>
+        <tr>
+          <td class="nowrap">
+            <span class="label" pTooltip="{{ task.id }}" tooltipPosition="top">
+              {{ getLabel(task.id) }}
+            </span>
+  
+            <button
+              pButton
+              type="button"
+              class="p-button-text p-button-rounded p-button-sm"
+              icon="pi pi-copy"
+              pTooltip="Copiar"
+              (click)="copy(task.id)">
+            </button>
+          </td>
+          <td class="nowrap">{{ task.duplicata.razaoTomador }}</td>
+          <td>{{ task.createdAt*1000 | date:'dd/MM/yyyy  HH:mm' }}</td>
+          <td>{{ task.duplicata.dataEmissao | date:'dd/MM/yyyy  HH:mm' }}</td>
+          <td>
+            <p-tag
+              [value]="task.taskType"
+              [severity]="'info'">
+            </p-tag>
+          </td>
+          <td>
+            <p-button label="Show" (onClick)="showTask(task)"></p-button>
+          </td>
+          <td>
+            <p-tag
+              [value]="task.status"
+              [severity]="task.status === 'RUNNING' ? 'warning' :
+                          task.status === 'FAILED'  ? 'danger'  :
+                          task.status === 'PAUSED'  ? 'info'    : 'success'">
+            </p-tag>
+          </td>
+          <td style="text-align:right">
+            <p-button label="Run" class="nowrap" icon="pi pi-play" size="small" severity="success"
+                      [loading]="isRunning(task)" [disabled]="isRunning(task)"
+                      (onClick)="runOnce(task)"></p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="3">Nenhuma task encontrada.</td></tr>
+      </ng-template>
+    </p-table>
+  </div>
+  
+<p-dialog [header]="'Task Selecionada | ' +taskSelecionada.id" [(visible)]="isShowTask" [modal]="true">
+  <json-view [data]="taskSelecionada"></json-view>
+</p-dialog>

@@ -1,0 +1,39 @@
+<!-- Cursor -->
+<div class="field col-12 md:col-6">
+  <label for="cursor" class="block text-500 mb-2">Cursor</label>
+  <p-inputNumber
+    inputId="cursor"
+    name="cursor"
+    [(ngModel)]="model.cursor"
+    [useGrouping]="false"
+    [min]="0"
+    [showButtons]="true"
+    [step]="1"
+    placeholder="0"
+  ></p-inputNumber>
+</div>
+
+<p-divider class="my-2"></p-divider>
+
+<!-- Last From (data/hora) -->
+<div class="field col-12 md:col-6">
+  <label for="lastFrom" class="block text-500 mb-2">Last From</label>
+  <div class="p-inputgroup">
+    <p-datepicker
+      [inline]="true"
+      [ngModel]="lastFromDate"
+      (ngModelChange)="onDateChange($event)"
+      [showIcon]="true"
+      iconDisplay="input"
+      [showTime]="true"
+      [hourFormat]="'24'"
+      dateFormat="dd/mm/yy"
+      placeholder="dd/mm/aaaa hh:mm"
+      panelStyleClass="dp-over-on-dialog"
+    ></p-datepicker>
+  </div>
+  <br>
+  <small *ngIf="model?.lastFrom != null">
+    UTC: {{ (model.lastFrom * 1000) | date:'dd/MM/yyyy HH:mm' }}
+  </small>
+</div>

@@ -1,0 +1,7 @@
+/* opcional, só pra dar um trato rápido */
+.list { list-style: none; padding: 0; margin: 0; }
+.row { display: flex; align-items: center; justify-content: space-between; padding: .5rem 0; }
+.btn-delete { border: 0; padding: .35rem .6rem; border-radius: .5rem; cursor: pointer; }
+.btn-delete:hover { filter: brightness(.95); }
+.muted { opacity: .7; }
+.title { font-weight: 600; }

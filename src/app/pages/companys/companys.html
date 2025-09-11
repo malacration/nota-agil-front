@@ -1,0 +1,55 @@
+<div class="card">
+    <div class="title">Lista de empresas</div>
+    <hr />
+  
+    <ng-container *ngIf="companys?.length; else empty">
+      <ul class="list">
+        <li
+          class="row"
+          *ngFor="let item of companys; let i = index;"
+        >
+        <div class="col">
+            <span>{{ i + 1 }} - {{ item.cnpj }} - {{ item.nome }}</span>
+        </div>
+        <div class="col">
+            <p-button severity="secondary" label="Delete" icon="pi pi-trash" outlined (onClick)="onDelete(item)"/>
+        </div>
+        </li>
+      </ul>
+    </ng-container>
+  
+    <ng-template #empty>
+      <p class="muted">Nenhuma empresa cadastrada.</p>
+    </ng-template>
+  </div>
+
+
+
+<div class="card">
+    <p-fluid class="flex mt-8">
+        <div class="card flex flex-col gap-6 w-full">
+            <div class="font-semibold text-xl">Registre uma Empresa do arquivei</div>
+            <small class="text-500" style="display:block; margin-top:4px;">
+                A reinicialização da aplicação é necessária após a adição de um CNPJ.
+            </small>
+            <p-inputgroup>
+                <p-select
+                    [(ngModel)]="selectedCnpj"
+                    inputId="mode"
+                    [filter]="true"
+                    [options]=cnpjsOptions
+                    placeholder="Selecione o CNPJ">
+                </p-select>
+            </p-inputgroup>
+            <p-inputgroup>
+                <input pInputText  [(ngModel)]="nome" placeholder="Nome" />
+                
+            </p-inputgroup>
+            <p-inputgroup>
+                <p-button (onClick)="salvar()">
+                    Salvar
+                </p-button>
+            </p-inputgroup>
+        </div>
+    </p-fluid>
+</div>

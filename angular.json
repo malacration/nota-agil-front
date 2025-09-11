@@ -17,7 +17,7 @@
                 "build": {
                     "builder": "@angular-devkit/build-angular:application",
                     "options": {
-                        "outputPath": "dist/sakai-ng",
+                        "outputPath": "dist/nota-agil-ng",
                         "index": "src/index.html",
                         "browser": "src/main.ts",
                         "polyfills": [
@@ -26,10 +26,8 @@
                         "tsConfig": "tsconfig.app.json",
                         "inlineStyleLanguage": "scss",
                         "assets": [
-                            {
-                                "glob": "**/*",
-                                "input": "public"
-                            }
+                            "src/assets",
+                            "src/public"
                         ],
                         "styles": [
                             "src/assets/styles.scss"

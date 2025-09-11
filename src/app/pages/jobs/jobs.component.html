@@ -1,0 +1,244 @@
+<!-- jobs-admin.component.html -->
+<div class="card">
+
+  <!-- 🎛️ Toolbar ---------------------------------------------------------->
+  <p-toolbar class="mb-4">
+    <ng-template pTemplate="start">
+      <h2 class="m-0 font-semibold text-lg md:text-xl">Agendamentos</h2>
+    </ng-template>
+
+    <ng-template pTemplate="end">
+      <button (click)="atualizar()" pButton type="button" icon="pi pi-refresh" class="p-button-sm p-button-text mr-2" label="Atualizar"></button>
+      <button (click)="startAll()" pButton type="button" icon="pi pi-play" class="p-button-sm p-button-success mr-2" label="Start All"></button>
+      <button (click)="stopAll()" pButton type="button" icon="pi pi-stop" class="p-button-sm p-button-danger" label="Stop All"></button>
+    </ng-template>
+  </p-toolbar>
+
+  <!-- 📋 Tabela de Jobs ---------------------------------------------------->
+  <p-table
+    [value]="jobs"
+    [sortField]="'company.nome'"
+    [sortOrder]="1"
+    [sortMode]="'single'"
+
+    class="p-datatable-sm"
+    dataKey="id"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="id">
+          Job ID
+          <p-sortIcon field="id"></p-sortIcon>
+        </th>
+        <th pSortableColumn="company.nome">
+          Empresa 
+          <p-sortIcon field="company.nome"></p-sortIcon>
+        </th>
+        <th pSortableColumn="jobState.tipo">
+          Tipo 
+          <p-sortIcon field="jobState.tipo"></p-sortIcon>
+        </th>
+        <th class="text-center">Status</th>
+        <th>Período (Miuto)</th>
+        <th>Ultima Execução</th>
+        <th>Modo</th>
+        <th class="text-center">Ações</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-job>
+      <tr>
+        <td class="font-medium text-primary-700">{{ job.id }}</td>
+        <td>{{ job.company.nome }}</td>
+        <td>{{ job.jobState.tipo }}</td>
+        <td class="text-center">
+          <p-badge
+            [value]="job.running ? 'ON' : 'OFF'"
+            [severity]="job.running ? 'success' : 'danger'"
+          ></p-badge>
+        </td>
+        <td>{{ job.period | number }}</td>
+        <td>{{ job.lastRun | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+        <td>
+          <p-tag
+            [value]="job.mode"
+            [severity]="job.mode === 'FIXED_DELAY' ? 'info' : 'warning'"
+          ></p-tag>
+        </td>
+
+        <td class="text-center">
+          <div class="flex justify-content-center gap-2">
+            <button
+              pButton
+              icon="pi pi-step-forward"
+              class="p-button-rounded p-button-text"
+              pTooltip="Run once"
+              (click)="runOnce(job.id)"
+            ></button>
+
+            <button
+              pButton
+              icon="pi pi-play"
+              class="p-button-rounded p-button-success p-button-text"
+              pTooltip="Start"
+              (click)="start(job.id)"
+            ></button>
+
+            <button
+              pButton
+              icon="pi pi-stop"
+              class="p-button-rounded p-button-danger p-button-text"
+              pTooltip="Stop"
+              (click)="stop(job.id)"
+            ></button>
+
+            <button
+              pButton
+              icon="pi pi-database"
+              class="p-button-rounded p-button-secondary p-button-text"
+              pTooltip="Ver JobState"
+              (click)="showJobState(job)"
+            ></button>
+
+            <button
+              pButton
+              icon="pi pi-cog"
+              class="p-button-rounded p-button-secondary p-button-text"
+              pTooltip="Editar período/modo"
+              (click)="changePeriodoModo(job)"
+            ></button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5" class="text-center text-600">Nenhum job encontrado.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<!-- ⚙️ Dialog de Configuração ------------------------------------------->
+<p-dialog
+  header="Configurar Job"
+  [(visible)]="jobDialogVisible"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '450px', heingh: 'auto' }"
+>
+
+<ng-template #content>
+  <div class="p-fluid">
+    <div class="formgrid grid">
+      <div class="flex flex-col gap-6">
+        <div class="col-12 md:col-8">
+          <label for="period" class="block font-bold mb-3">Período</label>
+          <p-inputNumber
+            inputId="period"
+            mode="decimal"
+            [useGrouping]="false"
+            [showButtons]="true"
+            class="w-full"
+            [(ngModel)]="selected.period"
+          ></p-inputNumber>
+          <small class="text-500">Ex.: 1 = 1m</small>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <hr>
+  <div class="col-12 md:col-8 ">
+    <button (click)="closeModal()" pButton label="Cancelar" class="p-button-text"></button>
+    <button (click)="changePeriod()" pButton label="Salvar" class="p-button-success"></button>
+  </div>
+</ng-template>
+</p-dialog>
+
+
+<p-dialog
+  [header]="editingState ? 'Editar Job State' : 'Job State'"
+  [(visible)]="jobStateDialogVisible"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '40rem', height: 'auto' }"
+>
+  <!-- Modo leitura -->
+  <ng-container *ngIf="!editingState; else editorTpl">
+      <div class="field col-12">
+        <label class="block text-500 mb-2">Empresa</label>
+        <span class="text-900 font-medium">{{ selected.jobState.empresa}}</span>
+      </div>
+      <hr />
+      <div class="field col-12">
+        <label class="block text-500 mb-2">Tipo</label>
+        <span class="text-900 font-medium">{{ selected.jobState.tipo}}</span>
+      </div>
+      <hr />
+      <div class="field col-12 md:col-6">
+        <label class="block text-500 mb-2">Cursor</label>
+        <span class="text-900 font-medium">{{ selected.jobState.cursor }}</span>
+      </div>
+      
+      <p-divider></p-divider>
+
+      <div class="field col-12 md:col-6">
+        <label class="block text-500 mb-2">Last From</label>
+        <span class="text-900 font-medium">
+          {{ selected.jobState.lastFrom*1000| date:'dd/MM/yyyy - HH:mm' }}
+        </span>
+      </div>
+  </ng-container>
+
+  <!-- Modo edição: carrega o componente standalone -->
+  <ng-template #editorTpl>
+    <app-job-state
+      [model]="selected.jobState"
+    >
+    </app-job-state>
+  </ng-template>
+
+  <!-- Rodapé com ações -->
+  <ng-template pTemplate="footer">
+    <div class="flex gap-2 justify-end w-full">
+      <p-button
+        *ngIf="!editingState"
+        label="Editar"
+        icon="pi pi-pencil"
+        (onClick)="onEditClick()"
+      ></p-button>
+
+      <p-button
+        *ngIf="!editingState"
+        label="Fechar"
+        severity="secondary"
+        icon="pi pi-times"
+        (onClick)="jobStateDialogVisible = false"
+      ></p-button>
+
+      <!-- Quando está editando, deixe o fluxo ao <app-state>.
+           Se quiser botões aqui também, pode expor métodos no componente pai. -->
+      <p-button
+        *ngIf="editingState"
+        label="Salvar"
+        icon="pi pi-check"
+        (onClick)="salvarState(selected.jobState)"
+      ></p-button>
+      <p-button
+        *ngIf="editingState"
+        label="Cancelar"
+        severity="secondary"
+        icon="pi pi-undo"
+        (onClick)="cancelEdit()"
+      ></p-button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-toast></p-toast>
