@@ -11,5 +11,5 @@ COPY . /app
 RUN ng build --configuration production --deploy-url / --base-href /
 
 FROM nginx
-COPY --from=build /app/nota-agil-ng/browser/ /usr/share/nginx/html
+COPY --from=build /app/dist/nota-agil-ng/browser/ /usr/share/nginx/html
 COPY nginx-custom.conf /etc/nginx/conf.d/default.conf
