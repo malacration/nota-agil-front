@@ -43,18 +43,24 @@ export class StateComponent implements OnInit, OnChanges {
     }
 
     private pullFromModel(): void {
-        this.lastFromDate = this.fromEpochSecondsToDate(this.model?.lastFrom);
+        if (this.model?.lastFrom) {
+            this.lastFromDate = this.fromEpochSecondsToDate(this.model?.lastFrom);
+        }
     }
 
-    private fromEpochSecondsToDate(v: number): Date {
-        console.log(new Date().getTimezoneOffset(),"timezone")
-        return new Date((v * 1000)+this.getTimeZoneInMs());
+    private fromEpochSecondsToDate(v: any): Date {
+        const val = typeof v == 'string' ? v : v * 1000;
+        const date = new Date(val);
+        
+        return isNaN(date.getTime()) ? new Date() : date;
     }
 
     /** Handler para mudanças no datepicker */
     onDateChange(d: Date): void {
-        this.lastFromDate = d;
-        this.model.lastFrom = this.toEpochSeconds(d);
+        if(d){
+            this.lastFromDate = d;
+            this.model.lastFrom = Math.floor(d.getTime() / 1000);
+        }
     }
 
     /** Converte Date -> epoch em segundos (UTC) */
