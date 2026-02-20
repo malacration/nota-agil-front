@@ -1,33 +1,88 @@
-/* opcional, só pra dar um trato rápido */
-.list { list-style: none; padding: 0; margin: 0; }
-.row { display: flex; align-items: center; justify-content: space-between; padding: .5rem 0; }
-.btn-delete { border: 0; padding: .35rem .6rem; border-radius: .5rem; cursor: pointer; }
-.btn-delete:hover { filter: brightness(.95); }
-.muted { opacity: .7; }
-.title { font-weight: 600; }
-
-.small {
-    font-size: 0.85rem;            /* ~12px */
-    line-height: 1.1;
+.error-box {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
 }
 
-
-:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td.nowrap {
-  white-space: nowrap !important;
+.filters-panel {
+  border: 1px solid var(--surface-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--surface-card);
 }
 
-/* evita que o tema force quebras dentro da palavra */
-:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td.nowrap .label {
-  display: inline-block;
+.filters-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 2fr 1.1fr;
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.filter-label {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+  line-height: 1.2;
+  min-height: 1rem;
+}
+
+.filter-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+:host ::ng-deep .small-col {
+  font-size: 0.75rem;
+  max-width: 11rem;
   white-space: nowrap;
-  overflow-wrap: normal;   /* cancela break-word/anywhere */
-  word-break: normal;
-  max-width: 18rem;        /* ajuste se quiser elipse */
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* tamanho pequeno da coluna */
-:host ::ng-deep td.small {
-  font-size: 0.75rem;      /* ~12px */
+:host ::ng-deep .nowrap .label {
+  display: inline-block;
+  max-width: 7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+:host ::ng-deep .filters-panel .p-select,
+:host ::ng-deep .filters-panel .p-inputtext,
+:host ::ng-deep .filters-panel .p-button {
+  width: 100%;
+}
+
+:host ::ng-deep .filters-panel .p-select,
+:host ::ng-deep .filters-panel .p-inputtext {
+  height: 2.6rem;
+}
+
+:host ::ng-deep .filters-panel .p-button {
+  height: 2.6rem;
+}
+
+@media (max-width: 1200px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    grid-template-columns: 1fr;
+  }
 }

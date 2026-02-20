@@ -1,114 +1,228 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
 import { finalize } from 'rxjs/operators';
-import { MessageService } from 'primeng/api';
 import { COMMON, INPUTS, TABLE, UIKIT } from '@/modules';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { TableLazyLoadEvent } from 'primeng/table';
 import { TasksService } from '@/_service/task.service';
-import { Task } from '@/_model/Task';
-import { Dialog } from "primeng/dialog";
+import { Task, TaskFilters, TaskListQuery, TaskStatus, TaskType } from '@/_model/Task';
+import { Clipboard, ClipboardModule } from '@angular/cdk/clipboard';
+import { MessageService } from 'primeng/api';
 import { JsonViewComponent } from '@/_components/JsonViewComponent';
-import { Clipboard } from '@angular/cdk/clipboard';
-
 
 @Component({
   selector: 'app-tasks',
+  standalone: true,
   templateUrl: './tasks.html',
-  styleUrls: ['./tasks.scss'],
+  styleUrl: './tasks.scss',
   imports: [
     ...COMMON,
     ...INPUTS,
     ...TABLE,
     ...UIKIT,
-    JsonViewComponent,
-    Dialog
-],
-  providers: [
-      MessageService
+    ClipboardModule,
+    JsonViewComponent
   ],
+  providers: [MessageService]
 })
 export class TasksComponent implements OnInit {
   tasks: Task[] = [];
   loading = false;
+  errorMessage = '';
 
-  // paginação/ordenação
-  rows = 20;            // page size
-  first = 0;            // índice do primeiro item na página
-  totalRecords = 0;
-  sortField: string | undefined = 'name';
-  sortOrder: 1 | -1 = 1;
-  taskSelecionada : Task = {
-    id : "",
-    name : "",
-    status : 'READY',
-  }
-  isShowTask = false
+  page = 0;
+  size = 20;
+  totalPages = 0;
+  totalElements = 0;
+  isShowDuplicata = false;
+  selectedTask: Task | null = null;
+  private readonly runningIds = new Set<string>();
 
-  private runningIds = new Set<string | number>();
-  private readonly apiBase = ''; // ex.: '/api'
+  readonly sizeOptions = [
+    { label: '10', value: 10 },
+    { label: '20', value: 20 },
+    { label: '50', value: 50 }
+  ];
 
-  constructor(private service: TasksService, 
-    private messageService: MessageService,
-    private clipboard: Clipboard,
+  readonly taskTypeOptions: { label: string; value: TaskType | null }[] = [
+    { label: 'Todos', value: null },
+    { label: 'CreateTask', value: 'CreateTask' },
+    { label: 'CancelTask', value: 'CancelTask' }
+  ];
+
+  readonly statusOptions: { label: string; value: TaskStatus | null }[] = [
+    { label: 'Todos', value: null },
+    { label: 'READY', value: 'READY' },
+    { label: 'FAILED', value: 'FAILED' },
+    { label: 'FINISHED', value: 'FINISHED' }
+  ];
+
+  filtersForm: {
+    taskType: TaskType | null;
+    status: TaskStatus | null;
+    tomador: string;
+  } = {
+    taskType: null,
+    status: null,
+    tomador: ''
+  };
+
+  private appliedFilters: TaskFilters = {};
+
+  constructor(
+    private readonly service: TasksService,
+    private readonly clipboard: Clipboard,
+    private readonly messageService: MessageService
   ) {}
 
   ngOnInit(): void {
-    this.load(); // carrega primeira página
-  }
-
-  onLazyLoad(ev: TableLazyLoadEvent): void {
-    // Atualiza estado vindo do paginator/sort
-    this.rows = ev.rows ?? this.rows;
-    this.first = ev.first ?? 0;
-    this.sortField = (ev.sortField as string) ?? this.sortField;
-    this.sortOrder = (ev.sortOrder as 1 | -1 | undefined) ?? this.sortOrder;
-    console.log(ev)
     this.load();
   }
 
-  private load(): void {
-    this.loading = true;
+  applyFilters(): void {
+    this.appliedFilters = {
+      taskType: this.filtersForm.taskType ?? undefined,
+      status: this.filtersForm.status ?? undefined,
+      tomador: this.filtersForm.tomador.trim() || undefined
+    };
 
-    const page = Math.floor((this.first || 0) / (this.rows || 10));
-    console.log(page,"pagina numero")
-
-    this.service.get(page.toString()).subscribe(resp => {
-      this.tasks = resp.content;
-      this.totalRecords = resp.totalElements;
-      this.loading = false
-    })
+    this.page = 0;
+    this.load();
   }
 
-  runOnce(task: Task): void {
-    this.service.execute(task.id).subscribe(it =>{
-      this.ngOnInit()
-    })
+  clearFilters(): void {
+    this.filtersForm = {
+      taskType: null,
+      status: null,
+      tomador: ''
+    };
+
+    this.appliedFilters = {};
+    this.page = 0;
+    this.load();
+  }
+
+  previousPage(): void {
+    if (this.page > 0 && !this.loading) {
+      this.page -= 1;
+      this.load();
+    }
+  }
+
+  nextPage(): void {
+    if (this.page + 1 < this.totalPages && !this.loading) {
+      this.page += 1;
+      this.load();
+    }
+  }
+
+  onPageSizeChange(newSize: number): void {
+    if (!newSize || newSize === this.size) {
+      return;
+    }
+
+    this.size = newSize;
+    this.page = 0;
+    this.load();
+  }
+
+  getStatusSeverity(status: TaskStatus): 'success' | 'danger' | 'warning' {
+    if (status === 'FINISHED') {
+      return 'success';
+    }
+
+    if (status === 'FAILED') {
+      return 'danger';
+    }
+
+    return 'warning';
+  }
+
+  get pageNumberLabel(): string {
+    if (this.totalPages === 0) {
+      return '0 / 0';
+    }
+
+    return `${this.page + 1} / ${this.totalPages}`;
+  }
+
+  getLabel(id: string): string {
+    if (!id) {
+      return '';
+    }
+    const head = id.split('-')[0] ?? id;
+    return head.slice(0, 6);
+  }
+
+  copy(value: string): void {
+    const ok = this.clipboard.copy(value);
+    this.messageService.add({
+      severity: ok ? 'success' : 'warn',
+      summary: ok ? 'Copiado' : 'Falhou',
+      detail: ok ? 'ID copiado para a área de transferência.' : 'Não foi possível copiar o ID.'
+    });
+  }
+
+  showDuplicata(task: Task): void {
+    this.selectedTask = task;
+    this.isShowDuplicata = true;
+  }
+
+  runTask(task: Task): void {
+    if (this.runningIds.has(task.id)) {
+      return;
+    }
+
+    this.runningIds.add(task.id);
+    this.service.execute(task.id).pipe(
+      finalize(() => this.runningIds.delete(task.id))
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Executada',
+          detail: 'Task executada com sucesso.'
+        });
+        this.load();
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Falha',
+          detail: 'Não foi possível executar a task.'
+        });
+      }
+    });
   }
 
   isRunning(task: Task): boolean {
     return this.runningIds.has(task.id);
   }
 
-  showTask(task : Task){
-    this.isShowTask = true
-    this.taskSelecionada = task
-  }
+  private load(): void {
+    this.loading = true;
+    this.errorMessage = '';
 
-   getLabel(id: string): string {
-    if (!id) return '';
-    const head = id.split('-')[0] ?? id;
-    return head.slice(0, 6);
-  }
+    const query: TaskListQuery = {
+      page: this.page,
+      size: this.size,
+      ...this.appliedFilters
+    };
 
-  copy(value: string) {
-    const ok = this.clipboard.copy(value);
-    this.messageService.add({
-      severity: ok ? 'success' : 'warn',
-      summary: ok ? 'Copiado' : 'Falhou',
-      detail: ok ? 'Valor copiado para a área de transferência.' : 'Não foi possível copiar.'
-    });
+    this.service
+      .list(query)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: (resp) => {
+          this.tasks = resp.content ?? [];
+          this.totalElements = resp.totalElements ?? 0;
+          this.totalPages = resp.totalPages ?? 0;
+          this.page = resp.number ?? this.page;
+          this.size = resp.size ?? this.size;
+        },
+        error: () => {
+          this.tasks = [];
+          this.totalElements = 0;
+          this.totalPages = 0;
+          this.errorMessage = 'Erro ao carregar tasks. Tente novamente.';
+        }
+      });
   }
-
 }

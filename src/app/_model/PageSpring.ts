@@ -1,7 +1,10 @@
-export interface PageSpring<T>{
-    content: T[];
-    totalElements: number;
-    totalPages: number;
-    number: number;       // página atual (0-based)
-    size: number;
+export interface PageSpring<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
 }

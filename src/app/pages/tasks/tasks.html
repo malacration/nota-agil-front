@@ -1,84 +1,177 @@
 <div class="card">
-    <div class="title">Tasks</div>
-    <hr />
-  
-    <p-table
-      [value]="tasks"
-      [lazy]="true"
-      [paginator]="true"
-      [rows]="rows"
-      [totalRecords]="totalRecords"
-      [showCurrentPageReport]="true"
-      currentPageReportTemplate="Mostrando {first}–{last} de {totalRecords} registros"
-      [loading]="loading"
-      (onLazyLoad)="onLazyLoad($event)"
-      dataKey="id"
-      [responsiveLayout]="'scroll'"
-      [tableStyle]="{ 'min-width': '48rem' }"
-    >
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Id</th>
-          <th>Tomador</th>
-          <th>Created At</th>
-          <th>Issued on</th>
-          <th>Task Type</th>
-          <th>Duplicata</th>
-          <th>Status</th>
-          <th style="width:1%;white-space:nowrap;text-align:right">Ações</th>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="body" let-task>
-        <tr>
-          <td class="nowrap">
-            <span class="label" pTooltip="{{ task.id }}" tooltipPosition="top">
-              {{ getLabel(task.id) }}
-            </span>
-  
-            <button
-              pButton
-              type="button"
-              class="p-button-text p-button-rounded p-button-sm"
-              icon="pi pi-copy"
-              pTooltip="Copiar"
-              (click)="copy(task.id)">
-            </button>
-          </td>
-          <td class="nowrap">{{ task.duplicata.razaoTomador }}</td>
-          <td>{{ task.createdAt*1000 | date:'dd/MM/yyyy  HH:mm' }}</td>
-          <td>{{ task.duplicata.dataEmissao | date:'dd/MM/yyyy  HH:mm' }}</td>
-          <td>
-            <p-tag
-              [value]="task.taskType"
-              [severity]="'info'">
-            </p-tag>
-          </td>
-          <td>
-            <p-button label="Show" (onClick)="showTask(task)"></p-button>
-          </td>
-          <td>
-            <p-tag
-              [value]="task.status"
-              [severity]="task.status === 'RUNNING' ? 'warning' :
-                          task.status === 'FAILED'  ? 'danger'  :
-                          task.status === 'PAUSED'  ? 'info'    : 'success'">
-            </p-tag>
-          </td>
-          <td style="text-align:right">
-            <p-button label="Run" class="nowrap" icon="pi pi-play" size="small" severity="success"
-                      [loading]="isRunning(task)" [disabled]="isRunning(task)"
-                      (onClick)="runOnce(task)"></p-button>
-          </td>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="emptymessage">
-        <tr><td colspan="3">Nenhuma task encontrada.</td></tr>
-      </ng-template>
-    </p-table>
+  <div class="flex flex-column md:flex-row md:align-items-end md:justify-content-between gap-3 mb-4">
+    <div>
+      <h2 class="m-0 text-xl font-semibold">Tasks</h2>
+      <small class="text-500">Listagem com filtros e paginação</small>
+    </div>
   </div>
-  
-<p-dialog [header]="'Task Selecionada | ' +taskSelecionada.id" [(visible)]="isShowTask" [modal]="true">
-  <json-view [data]="taskSelecionada"></json-view>
+
+  <div class="filters-panel mb-4">
+    <div class="filters-grid">
+      <div class="filter-item">
+        <label class="filter-label">Task Type</label>
+        <p-select
+          [options]="taskTypeOptions"
+          [(ngModel)]="filtersForm.taskType"
+          optionLabel="label"
+          optionValue="value"
+          [showClear]="false"
+          placeholder="Todos"
+          class="w-full"
+        />
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Status</label>
+        <p-select
+          [options]="statusOptions"
+          [(ngModel)]="filtersForm.status"
+          optionLabel="label"
+          optionValue="value"
+          [showClear]="false"
+          placeholder="Todos"
+          class="w-full"
+        />
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Nome do Tomador</label>
+        <input
+          pInputText
+          type="text"
+          class="w-full"
+          [(ngModel)]="filtersForm.tomador"
+          placeholder="Digite parte do nome do tomador"
+        />
+      </div>
+
+      <div class="filter-item actions-item">
+        <label class="filter-label">Ações</label>
+        <div class="filter-actions">
+          <button pButton type="button" icon="pi pi-filter" label="Aplicar" (click)="applyFilters()" [disabled]="loading"></button>
+          <button pButton type="button" icon="pi pi-times" label="Limpar" severity="secondary" (click)="clearFilters()" [disabled]="loading"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="error-box mb-3">
+    {{ errorMessage }}
+  </div>
+
+  <p-table
+    [value]="tasks"
+    [loading]="loading"
+    dataKey="id"
+    [responsiveLayout]="'scroll'"
+    [tableStyle]="{ 'min-width': '72rem' }"
+    class="p-datatable-sm"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th>ID</th>
+        <th>Nome da Task</th>
+        <th>Tipo</th>
+        <th>Status</th>
+        <th>Número Doc</th>
+        <th>Duplicata</th>
+        <th>Criada em</th>
+        <th style="width:1%;white-space:nowrap;text-align:right">Ações</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-task>
+      <tr>
+        <td class="small-col nowrap">
+          <span class="label" pTooltip="{{ task.id }}" tooltipPosition="top">
+            {{ getLabel(task.id) }}
+          </span>
+          <button
+            pButton
+            type="button"
+            class="p-button-text p-button-rounded p-button-sm"
+            icon="pi pi-copy"
+            pTooltip="Copiar ID"
+            (click)="copy(task.id)"
+          ></button>
+        </td>
+        <td>{{ task.name }}</td>
+        <td>
+          <p-tag [value]="task.taskType" severity="info"></p-tag>
+        </td>
+        <td>
+          <p-tag [value]="task.status" [severity]="getStatusSeverity(task.status)"></p-tag>
+        </td>
+        <td>{{ task.duplicata?.numero || '-' }}</td>
+        <td>
+          <button
+            pButton
+            type="button"
+            label="Show"
+            size="small"
+            severity="secondary"
+            (click)="showDuplicata(task)"
+            [disabled]="!task.duplicata"
+          ></button>
+        </td>
+        <td>{{ task.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+        <td style="text-align:right">
+          <p-button
+            label="Run"
+            icon="pi pi-play"
+            size="small"
+            severity="success"
+            [loading]="isRunning(task)"
+            [disabled]="isRunning(task)"
+            (onClick)="runTask(task)"
+          ></p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="8" class="text-center text-600 py-4">
+          <span *ngIf="!loading && !errorMessage">Nenhuma task encontrada para os filtros informados.</span>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <div class="flex flex-column md:flex-row md:align-items-center md:justify-content-between gap-3 mt-4">
+    <div class="flex align-items-center gap-2">
+      <span class="text-700">Tamanho da página:</span>
+      <p-select
+        [options]="sizeOptions"
+        [(ngModel)]="size"
+        optionLabel="label"
+        optionValue="value"
+        [showClear]="false"
+        (ngModelChange)="onPageSizeChange($event)"
+      />
+    </div>
+
+    <div class="flex align-items-center gap-2">
+      <button pButton type="button" label="Anterior" icon="pi pi-angle-left" severity="secondary" (click)="previousPage()" [disabled]="loading || page === 0"></button>
+      <span class="text-700">Página {{ pageNumberLabel }}</span>
+      <button pButton type="button" label="Próxima" icon="pi pi-angle-right" iconPos="right" severity="secondary" (click)="nextPage()" [disabled]="loading || page + 1 >= totalPages"></button>
+    </div>
+
+    <div class="text-600">
+      Total: {{ totalElements }} registro(s)
+    </div>
+  </div>
+</div>
+
+<p-dialog
+  [header]="'Task | ' + (selectedTask?.id || '')"
+  [(visible)]="isShowDuplicata"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '50rem', height: 'auto' }"
+>
+  <json-view [data]="selectedTask || {}"></json-view>
 </p-dialog>
+
+<p-toast></p-toast>
