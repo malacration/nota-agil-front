@@ -125,6 +125,7 @@
               [disabled]="task.status === 'FINISHED' || isUpdatingStatus(task)"
               [style]="{ 'min-width': '9rem' }"
               size="small"
+              appendTo="body"
               (onChange)="changeStatus(task, $event.value)"
             ></p-select>
             <p-button
