@@ -39,4 +39,8 @@ export class TasksService {
   execute(idTask: string): Observable<void> {
     return this.http.get<void>(`${this.apiUrl}/${idTask}`);
   }
+
+  updateStatus(idTask: string, status: 'READY' | 'FAILED' | 'FINISHED'): Observable<Task> {
+    return this.http.put<Task>(`${this.apiUrl}/${idTask}/status`, { status });
+  }
 }

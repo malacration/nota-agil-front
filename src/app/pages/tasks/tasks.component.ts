@@ -34,6 +34,7 @@ export class TasksComponent implements OnInit {
   isShowDuplicata = false;
   selectedTask: Task | null = null;
   private readonly runningIds = new Set<string>();
+  private readonly updatingStatusIds = new Set<string>();
 
   readonly sizeOptions = [
     { label: '10', value: 10 },
@@ -194,6 +195,53 @@ export class TasksComponent implements OnInit {
 
   isRunning(task: Task): boolean {
     return this.runningIds.has(task.id);
+  }
+
+  isUpdatingStatus(task: Task): boolean {
+    return this.updatingStatusIds.has(task.id);
+  }
+
+  getStatusOptions(task: Task): { label: string; value: TaskStatus }[] {
+    if (task.status === 'FINISHED') {
+      return [{ label: 'FINISHED', value: 'FINISHED' }];
+    }
+    return [
+      { label: 'READY', value: 'READY' },
+      { label: 'FAILED', value: 'FAILED' }
+    ];
+  }
+
+  changeStatus(task: Task, newStatus: 'READY' | 'FAILED'): void {
+    if (newStatus === task.status || this.updatingStatusIds.has(task.id)) {
+      return;
+    }
+
+    this.updatingStatusIds.add(task.id);
+    this.service.updateStatus(task.id, newStatus).pipe(
+      finalize(() => this.updatingStatusIds.delete(task.id))
+    ).subscribe({
+      next: (updated) => {
+        const idx = this.tasks.findIndex(t => t.id === task.id);
+        if (idx !== -1) {
+          this.tasks[idx] = updated;
+          this.tasks = [...this.tasks];
+        }
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Status atualizado',
+          detail: `Task marcada como ${updated.status}.`
+        });
+      },
+      error: (err) => {
+        this.tasks = [...this.tasks];
+        const mensagem = err?.error?.mensagem ?? 'Não foi possível alterar o status da task.';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Erro',
+          detail: mensagem
+        });
+      }
+    });
   }
 
   private load(): void {

@@ -116,15 +116,27 @@
         </td>
         <td>{{ task.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
         <td style="text-align:right">
-          <p-button
-            label="Run"
-            icon="pi pi-play"
-            size="small"
-            severity="success"
-            [loading]="isRunning(task)"
-            [disabled]="isRunning(task)"
-            (onClick)="runTask(task)"
-          ></p-button>
+          <div class="flex gap-2 justify-content-end align-items-center">
+            <p-select
+              [ngModel]="task.status"
+              [options]="getStatusOptions(task)"
+              optionLabel="label"
+              optionValue="value"
+              [disabled]="task.status === 'FINISHED' || isUpdatingStatus(task)"
+              [style]="{ 'min-width': '9rem' }"
+              size="small"
+              (onChange)="changeStatus(task, $event.value)"
+            ></p-select>
+            <p-button
+              label="Run"
+              icon="pi pi-play"
+              size="small"
+              severity="success"
+              [loading]="isRunning(task)"
+              [disabled]="isRunning(task)"
+              (onClick)="runTask(task)"
+            ></p-button>
+          </div>
         </td>
       </tr>
     </ng-template>
