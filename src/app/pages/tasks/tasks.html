@@ -4,6 +4,7 @@
       <h2 class="m-0 text-xl font-semibold">Tasks</h2>
       <small class="text-500">Listagem com filtros e paginação</small>
     </div>
+    <p-button label="Atualizar" icon="pi pi-refresh" [loading]="loading" [disabled]="loading" (onClick)="load()" />
   </div>
 
   <div class="filters-panel mb-4">
@@ -35,13 +36,13 @@
       </div>
 
       <div class="filter-item">
-        <label class="filter-label">Nome do Tomador</label>
+        <label class="filter-label">Tomador</label>
         <input
           pInputText
           type="text"
           class="w-full"
           [(ngModel)]="filtersForm.tomador"
-          placeholder="Digite parte do nome do tomador"
+          placeholder="Nome ou CNPJ do tomador"
         />
       </div>
 
@@ -74,7 +75,7 @@
         <th>Tipo</th>
         <th>Status</th>
         <th>Número Doc</th>
-        <th>Duplicata</th>
+        <th>Detalhes</th>
         <th>Criada em</th>
         <th style="width:1%;white-space:nowrap;text-align:right">Ações</th>
       </tr>
@@ -98,11 +99,15 @@
         <td>{{ task.name }}</td>
         <td>
           <p-tag [value]="task.taskType" severity="info"></p-tag>
+          @if (task.origem === 'SAP' || task.origem === 'DEALER') {
+            <p-tag [value]="task.origem === 'SAP' ? 'SAP' : 'Dealer'" severity="secondary" class="ml-1" pTooltip="Nota importada do ERP"></p-tag>
+          }
+          @if (task.origemAnexo) { <small class="block text-600" pTooltip="Origem do PDF anexado">PDF: {{ task.origemAnexo }}</small> }
         </td>
         <td>
           <p-tag [value]="task.status" [severity]="getStatusSeverity(task.status)"></p-tag>
         </td>
-        <td>{{ task.duplicata?.numero || '-' }}</td>
+        <td>{{ task.duplicata?.numero || task.consultaErp?.requisicao.numdocfiscal || '-' }}</td>
         <td>
           <button
             pButton
@@ -111,7 +116,7 @@
             size="small"
             severity="secondary"
             (click)="showDuplicata(task)"
-            [disabled]="!task.duplicata"
+            [disabled]="!task.duplicata && !task.consultaErp"
           ></button>
         </td>
         <td>{{ task.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
@@ -156,7 +161,7 @@
       <span class="text-700">Tamanho da página:</span>
       <p-select
         [options]="sizeOptions"
-        [(ngModel)]="size"
+        [ngModel]="size"
         optionLabel="label"
         optionValue="value"
         [showClear]="false"

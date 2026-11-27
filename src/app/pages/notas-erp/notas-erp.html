@@ -1,0 +1,152 @@
+<p-toast />
+
+<div class="card">
+  <div class="flex items-center justify-between gap-3 mb-2">
+    <div class="font-semibold text-xl">Notas de entrada dos ERPs</div>
+  </div>
+  <p class="text-600 mb-4">
+    Fonte alternativa ao Qive. Escolha o ERP, a empresa e o período de lançamento, e selecione quais notas do
+    contas a pagar devem virar task. As tasks são criadas como <b>READY</b>; o envio ao SoftExpert segue pela tela
+    <a routerLink="/tasks">Tasks</a>. O PDF é buscado no Qive (no SAP, também no anexo da nota); sem PDF, o
+    processo segue sem anexo.
+  </p>
+
+  @if (nenhumErpDisponivel) {
+    <div class="p-3 mb-3 border-round surface-100 text-700" role="status">
+      Nenhum ERP disponível para importação de notas.
+      @for (e of erpsIndisponiveis; track e.erp) { <div>{{ e.nome }}: {{ e.motivo }}</div> }
+    </div>
+  }
+
+  <div class="grid grid-cols-12 gap-3 items-end">
+    <div class="col-span-12 md:col-span-2 flex flex-col gap-1">
+      <label for="erp">ERP <span class="text-red-600">*</span></label>
+      <p-select inputId="erp" [options]="erpOptions" [ngModel]="filtro.erp" (ngModelChange)="selecionarErp($event)"
+        optionLabel="label" optionValue="value" optionDisabled="disabled" placeholder="Selecione o ERP"
+        [loading]="carregandoErps" [disabled]="nenhumErpDisponivel" appendTo="body" styleClass="w-full" />
+    </div>
+    <div class="col-span-12 md:col-span-3 flex flex-col gap-1">
+      <label for="empresa">Empresa <span class="text-red-600">*</span></label>
+      <p-select inputId="empresa" [options]="empresaOptions" [ngModel]="filtro.cnpj" (ngModelChange)="selecionarEmpresa($event)" optionLabel="label"
+        optionValue="value" optionDisabled="disabled" [placeholder]="filtro.erp ? 'Selecione a empresa' : 'Escolha o ERP primeiro'"
+        [filter]="true" filterBy="label" [loading]="carregandoEmpresas" [disabled]="!filtro.erp"
+        appendTo="body" styleClass="w-full" />
+    </div>
+    <div class="col-span-6 md:col-span-2 flex flex-col gap-1">
+      <label for="dataInicial">Lançamento de</label>
+      <input pInputText id="dataInicial" type="date" [(ngModel)]="filtro.dataInicial" (ngModelChange)="filtroAlterado()" />
+    </div>
+    <div class="col-span-6 md:col-span-2 flex flex-col gap-1">
+      <label for="dataFinal">até</label>
+      <input pInputText id="dataFinal" type="date" [(ngModel)]="filtro.dataFinal" (ngModelChange)="filtroAlterado()" />
+    </div>
+    <div class="col-span-6 md:col-span-1 flex flex-col gap-1">
+      <label for="fornecedor">Fornecedor</label>
+      <input pInputText id="fornecedor" [(ngModel)]="filtro.fornecedor" (ngModelChange)="filtroAlterado()" placeholder="CNPJ/CPF" />
+    </div>
+    <div class="col-span-6 md:col-span-1 flex flex-col gap-1">
+      <label for="numero">Número</label>
+      <input pInputText id="numero" [(ngModel)]="filtro.numero" (ngModelChange)="filtroAlterado()" placeholder="opcional" (keyup.enter)="buscar()" />
+    </div>
+    <div class="col-span-12 md:col-span-1">
+      <p-button label="Buscar" icon="pi pi-search" styleClass="w-full" [loading]="carregando"
+        [disabled]="!filtroValido || carregando || criando" (onClick)="buscar()" />
+    </div>
+  </div>
+  @if (erroPeriodo) { <small class="text-red-600">{{ erroPeriodo }}</small> }
+  @if (filtro.erp && !carregandoEmpresas && !empresaOptions.length) {
+    <div class="mt-2 text-orange-600" role="status">
+      Nenhuma empresa cadastrada no Nota Ágil. Cadastre as filiais em
+      <a routerLink="/companys">Empresas → Cadastrar filiais do ERP</a>.
+    </div>
+  }
+</div>
+
+@if (erro) {
+  <div class="card text-red-600" role="alert">{{ erro }}</div>
+}
+
+@if (resultados.length) {
+  <div class="card">
+    <div class="font-semibold mb-2">Resultado da criação</div>
+    <ul class="list-none p-0 m-0 flex flex-col gap-1">
+      @for (r of resultados; track r.id) {
+        <li class="flex items-center gap-2">
+          <p-tag [value]="rotuloResultado(r)" [severity]="severidadeResultado(r)" />
+          <span>Nota {{ numeroDaNota(r.id) }}</span>
+          @if (r.mensagem) { <span class="text-600">— {{ r.mensagem }}</span> }
+          @if (r.taskId) { <code class="text-sm">{{ r.taskId }}</code> }
+        </li>
+      }
+    </ul>
+  </div>
+}
+
+@if (buscou) {
+  <div class="card">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <span class="text-700">
+        {{ notas.length }} nota(s) · {{ selecionaveis.length }} disponível(is) para importar
+        @if (selecionadas.length) { · <b>{{ selecionadas.length }} selecionada(s)</b> }
+      </span>
+      @if (filtrosAlterados) {
+        <span class="text-orange-600" role="status"><i class="pi pi-exclamation-triangle"></i> Filtros alterados — busque novamente para criar tasks.</span>
+      } @else if (listaDesatualizada && !carregando) {
+        <span class="text-orange-600" role="status"><i class="pi pi-exclamation-triangle"></i> Lista desatualizada após a importação — busque novamente.</span>
+      }
+      <p-button label="Criar tasks das selecionadas" icon="pi pi-plus" [loading]="criando"
+        [disabled]="!selecionadas.length || criando || carregando || precisaNovaBusca || selecionadas.length > maxSelecao" (onClick)="criarTasks()" />
+    </div>
+
+    <p-table [value]="notas" [(selection)]="selecionadas" dataKey="nota.id" [loading]="carregando"
+      [rowSelectable]="podeSelecionarFn" [paginator]="notas.length > 50" [rows]="50"
+      [tableStyle]="{ 'min-width': '72rem' }" styleClass="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
+          <th pSortableColumn="nota.dataLancamento">Lançamento <p-sortIcon field="nota.dataLancamento" /></th>
+          <th>Emissão</th>
+          <th>Tipo</th>
+          <th pSortableColumn="nota.numero">Número <p-sortIcon field="nota.numero" /></th>
+          @if (erpListado === 'SAP') { <th>Série</th> } @else { <th>Parcelas</th> }
+          <th pSortableColumn="nota.nomeFornecedor">Fornecedor <p-sortIcon field="nota.nomeFornecedor" /></th>
+          <th class="text-right">Bruto</th>
+          <th class="text-right">Líquido</th>
+          @if (erpListado === 'SAP') { <th>PDF no SAP</th> }
+          <th>Situação</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-item>
+        <tr [class.opacity-60]="!podeSelecionar(item)">
+          <td><p-tableCheckbox [value]="item" [disabled]="!podeSelecionar(item)" /></td>
+          <td>{{ item.nota.dataLancamento | date: 'dd/MM/yyyy' }}</td>
+          <td>{{ item.nota.dataEmissao | date: 'dd/MM/yyyy' }}</td>
+          <td><p-tag [value]="rotuloTipo(item)" [severity]="item.nota.tipo === 'NaoDetectado' ? 'secondary' : 'info'" /></td>
+          <td>{{ item.nota.numero ?? '-' }}</td>
+          @if (erpListado === 'SAP') { <td>{{ item.nota.serie || '-' }}</td> } @else { <td>{{ item.nota.parcelas }}</td> }
+          <td>
+            <div>{{ item.nota.nomeFornecedor || '-' }}</div>
+            <small class="text-600">{{ formatarCnpj(item.nota.cpfCnpjFornecedor) }}</small>
+          </td>
+          <td class="text-right">{{ item.nota.valorBruto | currency: 'BRL' }}</td>
+          <td class="text-right">{{ item.nota.valorLiquido | currency: 'BRL' }}</td>
+          @if (erpListado === 'SAP') {
+            <td>
+              @if (item.nota.anexosPdf > 0) { <i class="pi pi-paperclip" pTooltip="Nota tem PDF anexado no SAP"></i> }
+              @else { <span class="text-600">-</span> }
+            </td>
+          }
+          <td>
+            <p-tag [value]="statusNota(item).label" [severity]="statusNota(item).severity"
+              [pTooltip]="item.problema || item.task?.id || ''" />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="11" class="text-center text-600 py-4">Nenhuma nota no período.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+}

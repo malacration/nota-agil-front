@@ -1,15 +1,56 @@
-import { Component } from '@angular/core';
-import { MenuItem } from 'primeng/api';
+import { Component, inject } from '@angular/core';
+import { MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { PopoverModule } from 'primeng/popover';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StyleClassModule } from 'primeng/styleclass';
 import { AppConfigurator } from './app.configurator';
 import { LayoutService } from '../service/layout.service';
+import Keycloak from 'keycloak-js';
+import { KeycloakLogoutService } from '@/core/keycloak/keycloak-logout.service';
+import { PerfilService } from '@/_service/perfil.service';
+import { firstValueFrom } from 'rxjs';
+
+/** Dados do usuário exibidos no topo (somente claims de perfil, nunca o token). */
+export interface SessionUser {
+    displayName: string;
+    username?: string;
+    email?: string;
+}
 
 @Component({
     selector: 'app-topbar',
     standalone: true,
-    imports: [RouterModule, CommonModule, StyleClassModule, AppConfigurator],
+    imports: [RouterModule, CommonModule, StyleClassModule, AppConfigurator, PopoverModule, ButtonModule],
+    // Seletores reforçados: o layout global (fora de @layer) esconde o <span> das ações
+    // e força display nelas; utilitários do Tailwind não conseguem sobrescrever.
+    styles: `
+        .layout-topbar .layout-topbar-action.layout-topbar-user {
+            width: auto;
+            max-width: 16rem;
+            gap: 0.5rem;
+            padding: 0 0.875rem;
+            border-radius: 2rem;
+        }
+        .layout-topbar .layout-topbar-action.layout-topbar-user span {
+            display: inline;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .layout-topbar .layout-topbar-user-mobile {
+            display: none;
+        }
+        @media (max-width: 991px) {
+            .layout-topbar .layout-topbar-menu .layout-topbar-action.layout-topbar-user {
+                display: none;
+            }
+            .layout-topbar .layout-topbar-menu .layout-topbar-user-mobile {
+                display: block;
+            }
+        }
+    `,
     template: ` <div class="layout-topbar">
         <div class="layout-topbar-logo-container">
             <button class="layout-menu-button layout-topbar-action" (click)="layoutService.onMenuToggle()">
@@ -33,7 +74,7 @@ import { LayoutService } from '../service/layout.service';
                         />
                     </g>
                 </svg>
-                <span>SAKAI</span>
+                <span>Nota Ágil</span>
             </a>
         </div>
 
@@ -64,27 +105,89 @@ import { LayoutService } from '../service/layout.service';
 
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
-                    <button type="button" class="layout-topbar-action">
-                        <i class="pi pi-calendar"></i>
-                        <span>Calendar</span>
-                    </button>
-                    <button type="button" class="layout-topbar-action">
-                        <i class="pi pi-inbox"></i>
-                        <span>Messages</span>
-                    </button>
-                    <button type="button" class="layout-topbar-action">
+                    <!-- Desktop: botão com o nome + painel com os dados da sessão. -->
+                    <button
+                        type="button"
+                        class="layout-topbar-action layout-topbar-user"
+                        data-testid="user-button"
+                        aria-haspopup="dialog"
+                        [attr.aria-label]="'Sessão de ' + user.displayName"
+                        (click)="userPanel.toggle($event)"
+                    >
                         <i class="pi pi-user"></i>
-                        <span>Profile</span>
+                        <span>{{ user.displayName }}</span>
                     </button>
+
+                    <!-- Mobile (menu ⋮): mesmos dados exibidos direto no menu. -->
+                    <div class="layout-topbar-user-mobile" data-testid="user-info-mobile">
+                        <ng-container *ngTemplateOutlet="userInfo" />
+                    </div>
                 </div>
             </div>
         </div>
+
+        <p-popover #userPanel>
+            <div class="w-64" data-testid="user-info-popover">
+                <ng-container *ngTemplateOutlet="userInfo" />
+            </div>
+        </p-popover>
+
+        <ng-template #userInfo>
+            <div class="flex flex-col gap-1 px-1 py-1">
+                <span class="font-semibold text-color break-words" data-testid="user-name">{{ user.displayName }}</span>
+                @if (user.username) {
+                    <span class="text-sm text-muted-color break-all" data-testid="user-username"><i class="pi pi-id-card mr-1 text-xs"></i>{{ user.username }}</span>
+                }
+                @if (user.email) {
+                    <span class="text-sm text-muted-color break-all" data-testid="user-email"><i class="pi pi-envelope mr-1 text-xs"></i>{{ user.email }}</span>
+                }
+            </div>
+            <p-button
+                styleClass="w-full mt-3"
+                icon="pi pi-sign-out"
+                label="Sair"
+                severity="secondary"
+                [outlined]="true"
+                [loading]="loggingOut"
+                data-testid="logout-button"
+                (onClick)="logout()"
+            />
+        </ng-template>
     </div>`
 })
 export class AppTopbar {
-    items!: MenuItem[];
+    private readonly keycloak = inject(Keycloak);
+    private readonly logoutService = inject(KeycloakLogoutService);
+    private readonly messages = inject(MessageService);
+    private readonly perfil = inject(PerfilService);
+
+    loggingOut = false;
 
     constructor(public layoutService: LayoutService) {}
+
+    /** Claims de perfil do access token já validado pelo adapter. */
+    get user(): SessionUser {
+        const claims = this.keycloak.tokenParsed as { name?: unknown; preferred_username?: unknown; email?: unknown } | undefined;
+        const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
+        const username = text(claims?.preferred_username);
+        const email = text(claims?.email);
+        return { displayName: text(claims?.name) ?? username ?? email ?? 'Usuário', username, email };
+    }
+
+    async logout(): Promise<void> {
+        if (this.loggingOut) return;
+        this.loggingOut = true;
+        try {
+            // Limpa o cache das filiais do usuario no back antes de sair (falha/timeout nao impedem o logout).
+            await firstValueFrom(this.perfil.limparMeuCache());
+            // Em caso de sucesso o navegador sai da página (end-session do Keycloak).
+            await this.logoutService.logout();
+        } catch (error) {
+            this.loggingOut = false;
+            console.error('[Keycloak] Falha ao sair:', (error as Error)?.message ?? error);
+            this.messages.add({ severity: 'error', summary: 'Não foi possível sair', detail: 'Tente novamente. Se persistir, feche o navegador para encerrar a sessão.' });
+        }
+    }
 
     toggleDarkMode() {
         this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));

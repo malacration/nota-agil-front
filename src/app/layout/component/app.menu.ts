@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { AppMenuitem } from './app.menuitem';
+import { PerfilService } from '@/_service/perfil.service';
 
 @Component({
     selector: 'app-menu',
@@ -17,17 +19,37 @@ import { AppMenuitem } from './app.menuitem';
 })
 export class AppMenu {
     model: MenuItem[] = [];
+    private readonly destroyRef = inject(DestroyRef);
 
+    constructor(private perfil: PerfilService) {}
+
+    /** Menu por perfil: admin ve tudo; operador so Notas ERP; sem perfil, nada. */
     ngOnInit() {
-        this.model = [
-            {
-                label: 'Home',
-                items: [
-                    { label: 'Jobs',     icon: 'pi pi-fw pi-calendar-clock', routerLink: ['/'] },
-                    { label: 'Companys', icon: 'pi pi-fw pi-building',       routerLink: ['/companys'] },
-                    { label: 'Tasks',    icon: 'pi pi-fw pi-list-check',     routerLink: ['/tasks'] }
-                ]
-            },
-        ];
+        // Dispara o /me (falha transitoria e tratada pelo guard); o menu segue o ultimo perfil obtido.
+        this.perfil.usuario().subscribe({ error: () => {} });
+        this.perfil.usuarioCarregado$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((u) => {
+            const notasErp = { label: 'Notas ERP', icon: 'pi pi-fw pi-file-import', routerLink: ['/notas-erp'] };
+            if (u?.perfil === 'ADMIN') {
+                this.model = [
+                    {
+                        label: 'Home',
+                        items: [
+                            { label: 'Jobs',     icon: 'pi pi-fw pi-calendar-clock', routerLink: ['/'] },
+                            { label: 'Companys', icon: 'pi pi-fw pi-building',       routerLink: ['/companys'] },
+                            { label: 'Tasks',    icon: 'pi pi-fw pi-list-check',     routerLink: ['/tasks'] },
+                            notasErp
+                        ]
+                    },
+                    {
+                        label: 'Administração',
+                        items: [{ label: 'Cache de filiais', icon: 'pi pi-fw pi-database', routerLink: ['/cache-filiais'] }]
+                    }
+                ];
+            } else if (u?.perfil === 'OPERADOR') {
+                this.model = [{ label: 'Home', items: [notasErp] }];
+            } else {
+                this.model = [];
+            }
+        });
     }
 }

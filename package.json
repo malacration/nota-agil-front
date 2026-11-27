@@ -23,6 +23,8 @@
         "@tailwindcss/postcss": "^4.1.11",
         "chart.js": "4.4.2",
         "highlight.js": "^11.11.1",
+        "keycloak-angular": "^20.1.0",
+        "keycloak-js": "^26.2.4",
         "ngx-highlightjs": "^14.0.1",
         "primeclt": "^0.1.5",
         "primeicons": "^7.0.0",

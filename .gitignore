@@ -5,7 +5,10 @@
 /tmp
 /out-tsc
 /bazel-out
+
+# Runtime config (por ambiente) — versione apenas o config.example.json
 src/assets/config.json
+
 # Node
 /node_modules
 npm-debug.log
@@ -41,5 +44,3 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
-
-src/assets/config.json
