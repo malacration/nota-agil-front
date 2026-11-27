@@ -1,5 +1,33 @@
 # Sakai19
 
+## Login no Nota Agil
+
+O frontend consulta `GET {apiUrl}/auth/config` no backend para obter a configuracao
+do Keycloak de producao (realm `rovema`, client `nota-agil`). O arquivo local
+`src/assets/config.json` precisa conter apenas `apiUrl`; use `config.example.json`
+como referencia. O login utiliza Authorization Code + PKCE, e as chamadas a API
+enviam o access token como Bearer. O backend valida o JWT pelas chaves JWKS do realm.
+
+Configuracao completa e clients de integracao: [Keycloak no backend](../back/docs/keycloak.md).
+
+## Configuracao de runtime (`assets/config.json`)
+
+`src/assets/config.json` nao e versionado (esta no `.gitignore`) e nao entra nas imagens Docker.
+Sem ele o front nao inicia e mostra a tela "Configuracao da aplicacao indisponivel".
+
+- **Local (`ng serve`)**: `cp src/assets/config.example.json src/assets/config.json` e ajuste `apiUrl`.
+- **Imagens Docker (`Dockerfile` e `Dockerfile.hmg`)**: o script
+  `docker/runtime/40-nota-agil-config.sh` roda no entrypoint do nginx e gera o arquivo na subida:
+  - se ja existir um arquivo montado em `/usr/share/nginx/html/assets/config.json`, ele e usado (precedencia);
+  - senao, gera `{"apiUrl": "$NOTA_AGIL_API_URL"}`;
+  - sem nenhum dos dois, o container falha na subida (log `ERRO: defina NOTA_AGIL_API_URL ...`).
+- `Dockerfile.hmg` ja define `NOTA_AGIL_API_URL=/api` (o nginx da imagem faz proxy de `/api` para o back);
+  o healthcheck consulta `/assets/config.json`.
+- `Dockerfile` (imagem publicada) **nao tem padrao**: informe a URL do back vista pelo navegador, por exemplo
+  `docker run -e NOTA_AGIL_API_URL=http://<host-do-back>:8091 malacration/nota-agil-front:<versao>`.
+
+O arquivo so deve conter `apiUrl` (nada de segredos: ele e publico para o navegador).
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.0.5.
 
 ## Development server

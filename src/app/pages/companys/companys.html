@@ -1,5 +1,18 @@
+<p-confirmdialog />
+@if (errorMessage) { <div class="card text-red-600" role="alert">{{ errorMessage }}</div> }
+@if (successMessage) { <div class="card text-green-600" role="status">{{ successMessage }}</div> }
 <div class="card">
-    <div class="title">Lista de empresas</div>
+    <div class="flex items-center justify-between gap-3">
+      <div class="title">Lista de empresas</div>
+      <div class="flex gap-2">
+        <p-button label="Cadastrar filiais do ERP" icon="pi pi-building" (onClick)="abrirFiliaisErp()" />
+        <p-button label="Atualizar" icon="pi pi-refresh" severity="secondary" (onClick)="ngOnInit()" />
+      </div>
+    </div>
+    <p class="muted">Vincule o ERP usado para consultar o pagamento das notas desta empresa.</p>
+    @if (!loadingErps && erpOptions.length === 1) {
+      <p class="muted">Nenhum ERP possui consulta de pagamento implementada no momento. O vínculo disponível é “Nenhum”.</p>
+    }
     <hr />
   
     <ng-container *ngIf="companys?.length; else empty">
@@ -9,7 +22,39 @@
           *ngFor="let item of companys; let i = index;"
         >
         <div class="col">
+            <label [for]="'erp-' + i">ERP de pagamento</label>
+            <p-select
+                [inputId]="'erp-' + i"
+                [ngModel]="item.erpPagamento ?? null"
+                [options]="erpOptionsFor(item)"
+                optionLabel="label"
+                optionValue="value"
+                optionDisabled="disabled"
+                [disabled]="loadingErps || isUpdatingErp(item.cnpj)"
+                (onChange)="atualizarErp(item, $event.value)"
+                appendTo="body"
+            />
+        </div>
+        <div class="col">
             <span>{{ i + 1 }} - {{ item.cnpj }} - {{ item.nome }}</span>
+        </div>
+        <div class="col">
+            <label [for]="'dealer-' + i">Código no Dealer</label>
+            <p-inputnumber [inputId]="'dealer-' + i" [ngModel]="item.codigoDealer ?? null" [useGrouping]="false" [min]="1"
+                placeholder="sem código" [disabled]="isUpdatingDealer(item.cnpj)"
+                (onBlur)="atualizarCodigoDealer(item, $any($event.target).value ? +$any($event.target).value : null)"
+                pTooltip="Titulo_EmpresaCod no Dealer; necessário para importar notas do Dealer" />
+        </div>
+        <div class="col">
+          @if (item.vinculadoQive !== false) {
+            <span>Qive vinculada</span>
+          } @else {
+            <span>Sem vínculo Qive</span>
+            <p-button label="Vincular Qive" icon="pi pi-link" severity="secondary"
+              [disabled]="!qiveDisponivel(item) || isLinkingQive(item.cnpj)" [loading]="isLinkingQive(item.cnpj)"
+              (onClick)="vincularQive(item)" />
+            @if (!qiveDisponivel(item)) { <small>CNPJ ainda não disponível na Qive</small> }
+          }
         </div>
         <div class="col">
             <p-button severity="secondary" label="Delete" icon="pi pi-trash" outlined (onClick)="onDelete(item)"/>
@@ -19,7 +64,7 @@
     </ng-container>
   
     <ng-template #empty>
-      <p class="muted">Nenhuma empresa cadastrada.</p>
+      <p class="muted">Nenhuma empresa cadastrada. Use “Cadastrar filiais do ERP” para trazer as filiais do SAP ou do Dealer.</p>
     </ng-template>
   </div>
 
@@ -28,28 +73,112 @@
 <div class="card">
     <p-fluid class="flex mt-8">
         <div class="card flex flex-col gap-6 w-full">
-            <div class="font-semibold text-xl">Registre uma Empresa do arquivei</div>
+            <div class="font-semibold text-xl">Cadastrar empresa</div>
             <small class="text-500" style="display:block; margin-top:4px;">
-                A reinicialização da aplicação é necessária após a adição de um CNPJ.
+                Cadastre pela Qive ou informe o CNPJ manualmente. O vínculo com a Qive pode ser feito depois.
             </small>
+            <label for="company-mode">Forma de cadastro</label>
+            <p-select inputId="company-mode" [options]="modosCadastro" optionLabel="label" optionValue="value" [(ngModel)]="modoCadastro" />
+            @if (modoCadastro === 'QIVE') {
             <p-inputgroup>
                 <p-select
                     [(ngModel)]="selectedCnpj"
                     inputId="mode"
                     [filter]="true"
                     [options]=cnpjsOptions
+                    optionLabel="label"
+                    optionValue="value"
                     placeholder="Selecione o CNPJ">
                 </p-select>
             </p-inputgroup>
+            } @else {
+              <label for="manual-cnpj">CNPJ</label>
+              <input id="manual-cnpj" pInputText [(ngModel)]="cnpjManual" placeholder="CNPJ com 14 dígitos" maxlength="18" />
+            }
             <p-inputgroup>
                 <input pInputText  [(ngModel)]="nome" placeholder="Nome" />
                 
             </p-inputgroup>
+            <label for="new-company-erp">ERP para consulta de pagamento</label>
+            <p-select
+                inputId="new-company-erp"
+                [(ngModel)]="erpPagamento"
+                [options]="erpOptions"
+                optionLabel="label"
+                optionValue="value"
+                [disabled]="loadingErps || saving"
+            />
             <p-inputgroup>
-                <p-button (onClick)="salvar()">
+                <p-button (onClick)="salvar()" [disabled]="!canSave()" [loading]="saving">
                     Salvar
                 </p-button>
             </p-inputgroup>
         </div>
     </p-fluid>
 </div>
+
+<p-dialog header="Cadastrar filiais do ERP" [(visible)]="filiaisDialog" [modal]="true" [dismissableMask]="true" [closeOnEscape]="true" [style]="{ width: 'min(72rem, 96vw)' }"
+  [draggable]="false" appendTo="body">
+  <p class="muted mb-3">
+    Cada CNPJ vira uma empresa. A empresa só é vinculada ao Qive se o CNPJ existir lá; sem vínculo, não há jobs de busca
+    de notas no Qive para ela (o vínculo pode ser feito depois na lista). O ERP de pagamento vem preenchido com o
+    ERP escolhido quando a consulta de pagamento dele já existe (hoje só o SAP). No Dealer, o código da empresa
+    (Titulo_EmpresaCod) também é preenchido.
+  </p>
+  <div class="flex flex-col gap-1 mb-3" style="max-width: 20rem">
+    <label for="erp-filiais">ERP <span class="text-red-600">*</span></label>
+    <p-select inputId="erp-filiais" [options]="erpsFiliais" [ngModel]="erpFiliais" (ngModelChange)="carregarFiliais($event)"
+      optionLabel="label" optionValue="value" optionDisabled="disabled" placeholder="Selecione o ERP" appendTo="body" />
+  </div>
+  @if (erroFiliais) { <div class="text-red-600 mb-2" role="alert">{{ erroFiliais }}</div> }
+  @if (erpFiliais && !carregandoFiliais && !qiveRespondeu) {
+    <div class="text-orange-600 mb-2" role="status">A Qive não respondeu: as filiais serão cadastradas sem vínculo com o Qive.</div>
+  }
+
+  @if (resultadosFiliais.length) {
+    <ul class="list-none p-0 m-0 mb-3 flex flex-col gap-1">
+      @for (r of resultadosFiliais; track r.cnpj) {
+        <li class="flex items-center gap-2">
+          <p-tag [value]="rotuloResultadoFilial(r)" [severity]="severidadeResultadoFilial(r)" />
+          <span>{{ r.cnpj }} - {{ nomeFilial(r.cnpj) }}</span>
+          @if (r.mensagem) { <span class="text-600">— {{ r.mensagem }}</span> }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (erpFiliais) {
+    <p-table [value]="filiais" [(selection)]="filiaisSelecionadas" dataKey="cnpj" [loading]="carregandoFiliais"
+      [rowSelectable]="filialSelecionavelFn" [scrollable]="true" scrollHeight="50vh" styleClass="p-datatable-sm">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
+          <th>CNPJ</th>
+          <th>Nome no ERP</th>
+          @if (erpFiliais === 'DEALER') { <th>Código Dealer</th> }
+          <th>Qive</th>
+          <th>Cadastro</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-f>
+        <tr [class.opacity-60]="!filialSelecionavel(f)">
+          <td><p-tableCheckbox [value]="f" [disabled]="!filialSelecionavel(f)" /></td>
+          <td>{{ f.cnpj }}</td>
+          <td>{{ f.nome }} @if (!f.ativa) { <p-tag value="Inativa no ERP" severity="secondary" /> }</td>
+          @if (erpFiliais === 'DEALER') { <td>{{ f.codigoDealer ?? '-' }}</td> }
+          <td><p-tag [value]="qiveFilial(f).label" [severity]="qiveFilial(f).severity" [pTooltip]="qiveFilial(f).tooltip" /></td>
+          <td><p-tag [value]="situacaoFilial(f).label" [severity]="situacaoFilial(f).severity" [pTooltip]="f.problema || ''" /></td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="6" class="text-center muted py-4">Nenhuma filial com CNPJ no ERP.</td></tr>
+      </ng-template>
+    </p-table>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button label="Fechar" severity="secondary" (onClick)="filiaisDialog = false" />
+    <p-button [label]="'Cadastrar selecionadas (' + filiaisSelecionadas.length + ')'" icon="pi pi-check"
+      [disabled]="!filiaisSelecionadas.length || importandoFiliais || carregandoFiliais" [loading]="importandoFiliais" (onClick)="importarFiliais()" />
+  </ng-template>
+</p-dialog>

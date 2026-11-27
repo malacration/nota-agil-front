@@ -45,6 +45,9 @@ export class TasksComponent implements OnInit {
   readonly taskTypeOptions: { label: string; value: TaskType | null }[] = [
     { label: 'Todos', value: null },
     { label: 'CreateTask', value: 'CreateTask' },
+    { label: 'UploadPdf', value: 'UploadPdf' },
+    { label: 'UploadPdf (nota de ERP)', value: 'UploadPdfErp' },
+    { label: 'Consulta de pagamento ERP', value: 'ConsultaErp' },
     { label: 'CancelTask', value: 'CancelTask' }
   ];
 
@@ -124,7 +127,7 @@ export class TasksComponent implements OnInit {
     this.load();
   }
 
-  getStatusSeverity(status: TaskStatus): 'success' | 'danger' | 'warning' {
+  getStatusSeverity(status: TaskStatus): 'success' | 'danger' | 'warn' {
     if (status === 'FINISHED') {
       return 'success';
     }
@@ -133,7 +136,7 @@ export class TasksComponent implements OnInit {
       return 'danger';
     }
 
-    return 'warning';
+    return 'warn';
   }
 
   get pageNumberLabel(): string {
@@ -179,7 +182,7 @@ export class TasksComponent implements OnInit {
         this.messageService.add({
           severity: 'success',
           summary: 'Executada',
-          detail: 'Task executada com sucesso.'
+          detail: 'Tentativa de execução concluída. Confira o status e os detalhes da task.'
         });
         this.load();
       },
@@ -244,7 +247,7 @@ export class TasksComponent implements OnInit {
     });
   }
 
-  private load(): void {
+  load(): void {
     this.loading = true;
     this.errorMessage = '';
 
